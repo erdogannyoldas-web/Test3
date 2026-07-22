@@ -1,0 +1,56 @@
+name: BIST APK ZIP Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Proje ZIP dosyasını aç
+        shell: bash
+        run: |
+          rm -rf extracted_app
+          mkdir extracted_app
+          unzip -q BIST_AI_Mobil_V1_2_FULL.zip -d extracted_app
+          PROJECT_DIR="$(find extracted_app -name pubspec.yaml -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Flutter kur
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Android projesini doğrula
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter create --platforms=android --org com.doganiletisim --project-name bist_ai_mobil_v1 .
+
+      - name: Paketleri yükle
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter pub get
+
+      - name: Analiz ve test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: APK üret
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build apk --release
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: BIST-Sinyal-V1-APK
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
